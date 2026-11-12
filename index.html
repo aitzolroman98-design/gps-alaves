@@ -4513,8 +4513,31 @@ function boot(){
   State.perfilMax = pmLoadLocal() || (window.__ALAVES_PUBLISHED__ && window.__ALAVES_PUBLISHED__.perfilMax) || null;
   wirePerfilMax();
   var persisted = loadPersisted();
+  var restored = false;
+  /* Si este navegador no tiene nada guardado (versión nueva abierta desde otra dirección,
+     archivo descargado, otro ordenador...), se parte de los datos que ya lleva publicados
+     el propio archivo, en vez de empezar de cero. */
+  var pub0 = window.__ALAVES_PUBLISHED__;
+  if(!(persisted && persisted.length) && pub0 && Array.isArray(pub0.sessions) && pub0.sessions.length && !pub0.isSample){
+    persisted = pub0.sessions.slice();
+    restored = true;
+    if(pub0.photos){
+      var savedPh = null; try{ savedPh = loadPhotos(); }catch(e){}
+      if(!savedPh || !Object.keys(savedPh).length){
+        State.photos = Object.assign({}, State.photos, pub0.photos);
+        try{ localStorage.setItem('alavesGpsPhotos_v1', JSON.stringify(pub0.photos)); }catch(e){}
+      }
+    }
+    if(State.anthroDB && !Object.keys(State.anthroDB.players).length && pub0.anthro && pub0.anthro.plain && pub0.anthro.players){
+      Object.keys(pub0.anthro.players).forEach(function(slug){
+        var pp = pub0.anthro.players[slug]; if(!pp || !pp.data) return;
+        State.anthroDB.players[slug] = {name:pp.name, age:pp.data.age, birth:pp.data.birth||'', records:pp.data.records||[]};
+      });
+      anSaveDB();
+    }
+  }
   if(persisted && persisted.length){
-    setSessions(persisted, {persist:false, isSample:false});
+    setSessions(persisted, {persist:restored, isSample:false});
     buildDashboard();
     showScreen('dashboard');
   } else {
