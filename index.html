@@ -2345,6 +2345,8 @@ function mergeSessions(existing, incoming){
       updated++;
       var old = map[k];
       ['dayTag','microciclo','sourceLabel','posicion'].forEach(function(f){ if(old[f] && !s[f]) s[f] = old[f]; });
+      // nombre de archivo del export en bruto: se conserva el nombre que ya tenía la sesión (S85…)
+      if(old.sourceLabel && /^gps[_ ]?rendimiento/i.test(s.sourceLabel||'')) s.sourceLabel = old.sourceLabel;
       Object.keys(old).forEach(function(f){ if(s[f]==null && old[f]!=null) s[f] = old[f]; });
     } else { added++; order.push(k); }
     map[k] = s;
@@ -4518,9 +4520,29 @@ function boot(){
      archivo descargado, otro ordenador...), se parte de los datos que ya lleva publicados
      el propio archivo, en vez de empezar de cero. */
   var pub0 = window.__ALAVES_PUBLISHED__;
-  if(!(persisted && persisted.length) && pub0 && Array.isArray(pub0.sessions) && pub0.sessions.length && !pub0.isSample){
-    persisted = pub0.sessions.slice();
+  var pubStamp = (pub0 && pub0.meta && pub0.meta.at) ? String(pub0.meta.at) : 'pub';
+  var lastMerged = null; try{ lastMerged = localStorage.getItem('alavesGpsPubMerged_v1'); }catch(e){}
+  var hasLocal = !!(persisted && persisted.length);
+  if(pub0 && Array.isArray(pub0.sessions) && pub0.sessions.length && !pub0.isSample && (!hasLocal || lastMerged!==pubStamp)){
+    if(hasLocal){
+      // Une lo publicado con lo de este navegador (lo del navegador manda en caso de choque).
+      // Nombres completos de un Excel en bruto ("Pichi Pichi") se asignan a su jugadora.
+      var knownSet = {};
+      pub0.sessions.forEach(function(x){ knownSet[x.player] = true; });
+      (State.manualPlayers||[]).forEach(function(m){ if(m && m.name) knownSet[m.name] = true; });
+      var knownArr = Object.keys(knownSet);
+      var posPub = {}; pub0.sessions.forEach(function(x){ if(x.posicion) posPub[x.player] = x.posicion; });
+      persisted.forEach(function(x){
+        if(knownSet[x.player]) return;
+        var r = resolvePlayerName(x.player, knownArr);
+        if(r!==x.player){ x.player = r; if(posPub[r]) x.posicion = posPub[r]; }
+      });
+      persisted = mergeSessions(pub0.sessions.slice(), persisted).sessions;
+    } else {
+      persisted = pub0.sessions.slice();
+    }
     restored = true;
+    try{ localStorage.setItem('alavesGpsPubMerged_v1', pubStamp); }catch(e){}
     if(pub0.photos){
       var savedPh = null; try{ savedPh = loadPhotos(); }catch(e){}
       if(!savedPh || !Object.keys(savedPh).length){
