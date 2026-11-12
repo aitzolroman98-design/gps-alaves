@@ -2464,7 +2464,7 @@ function renderContextBar(){
   var mdTags = p ? getPlayerDayTags(p.name) : [];
   if(State.mode==='anthro' && p && !anShowTab(p)){ State.mode='session'; ensureValidSessionDate(p); }
   var modeControls;
-  if(State.mode==='anthro' || State.mode==='perfil'){
+  if(State.mode==='anthro' || State.mode==='perfil' || State.mode==='competitivo'){
     modeControls = '';
   } else if(State.mode==='session'){
     modeControls = sessionDates.length ?
@@ -2487,10 +2487,11 @@ function renderContextBar(){
   }
   bar.innerHTML =
     '<div class="seg" id="segMode">' +
+      '<button data-v="perfil" class="'+(State.mode==='perfil'?'active':'')+'">'+tr(lang,'Perfil','Profile')+'</button>' +
       '<button data-v="session" class="'+(State.mode==='session'?'active':'')+'">'+tr(lang,'Sesión','Session')+'</button>' +
       '<button data-v="md" class="'+(State.mode==='md'?'active':'')+'">MD</button>' +
       '<button data-v="match" class="'+(State.mode==='match'?'active':'')+'">'+tr(lang,'Partido','Match')+'</button>' +
-      '<button data-v="perfil" class="'+(State.mode==='perfil'?'active':'')+'">'+tr(lang,'Perfil','Profile')+'</button>' +
+      '<button data-v="competitivo" class="'+(State.mode==='competitivo'?'active':'')+'">'+tr(lang,'Perfil Competitivo','Competitive Profile')+'</button>' +
       (anShowTab(p) ? '<button data-v="anthro" class="anthro-tab'+(State.mode==='anthro'?' active':'')+'">'+tr(lang,'Antropometría','Anthropometry')+'</button>' : '') +
     '</div>' +
     modeControls +
@@ -2729,7 +2730,7 @@ function pmApply(data){
   var n = Object.keys(data.players).filter(function(k){ return Object.keys(data.players[k].values).length; }).length;
   showToast('Perfil máximo actualizado desde "'+data.fileName+'": '+n+' jugadoras con perfil.');
   renderPerfilMaxModal();
-  if(State.selectedPlayer && State.mode==='perfil') renderPlayerView();
+  if(State.selectedPlayer && (State.mode==='perfil' || State.mode==='competitivo')) renderPlayerView();
 }
 function pmShowError(err){
   var box = $('#pmError');
@@ -2817,7 +2818,7 @@ function renderPerfilView(root, p, lang){
 
   var head = '<div class="report-head"><div class="report-head-id">' + avatarHTML(p.name, 'avatar-report') +
     '<div><h1>'+escapeHtml(p.name)+'</h1><div class="report-sub">'+escapeHtml(p.posicion||'')+'</div></div></div>' +
-    '<div style="display:flex;gap:6px;flex-wrap:wrap;"><span class="tag tag-accent">'+tr(lang,'Perfil de la jugadora','Player profile')+'</span>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;"><span class="tag tag-accent">'+(State.mode==='competitivo'?tr(lang,'Perfil competitivo','Competitive profile'):tr(lang,'Perfil de la jugadora','Player profile'))+'</span>' +
     (all.length ? '<span class="tag">'+tr(lang,'Desde el ','Since ')+escapeHtml(fmtDateShort(all.reduce(function(mn,s){ return s.date<mn?s.date:mn; }, all[0].date),lang))+'</span>' : '') + '</div></div>';
 
   function section(title, sub, body, extraHead){
@@ -2916,10 +2917,10 @@ function renderPerfilView(root, p, lang){
     }
   }
   var srcNote = d ? '<span class="pf-section-sub" style="margin:0;">'+tr(lang,'Media de sus 3 mejores partidos de ≥ '+d_threshold()+'′, cada variable por separado','Average of her 3 best matches of ≥ '+d_threshold()+'′, each variable on its own')+'</span>' : '';
-  var individual = section(tr(lang,'Perfil Competitivo Individual','Individual Competitive Profile'), d ? tr(lang,'Media de sus 3 mejores partidos de ≥ '+d_threshold()+' minutos (cada variable por separado)','Average of her 3 best matches of ≥ '+d_threshold()+' minutes (each variable on its own)') : '', indivBody, connectBtn);
-  var posicional = section(tr(lang,'Perfil Competitivo Posicional','Positional Competitive Profile'), d ? tr(lang,'Media de los perfiles máximos individuales de su posición','Average of the individual max profiles in her position') : '', posBody);
+  var individual = section(tr(lang,'Perfil Máximo Competitivo Individual','Individual Max Competitive Profile'), d ? tr(lang,'Media de sus 3 mejores partidos de ≥ '+d_threshold()+' minutos (cada variable por separado)','Average of her 3 best matches of ≥ '+d_threshold()+' minutes (each variable on its own)') : '', indivBody, connectBtn);
+  var posicional = section(tr(lang,'Perfil Máximo Competitivo Posicional','Positional Max Competitive Profile'), d ? tr(lang,'Media de los perfiles máximos individuales de su posición','Average of the individual max profiles in her position') : '', posBody);
 
-  root.innerHTML = head + '<div class="pf-wrap">' + resumen + maximos + individual + posicional + '</div>';
+  root.innerHTML = head + '<div class="pf-wrap">' + (State.mode==='competitivo' ? individual + posicional : resumen + maximos) + '</div>';
   var cb = $('#btnPfConnect');
   if(cb) cb.addEventListener('click', function(){ if(State.perfilMax) openPerfilMaxModal(); else { openPerfilMaxModal(); } });
 }
@@ -2936,7 +2937,7 @@ function renderPlayerView(){
   if(!p){ root.innerHTML = emptyStateHTML('Sube un Excel o carga la demo para ver informes.'); return; }
   var lang = getPlayerLang(p.name);
   if(State.mode==='anthro'){ renderAnthroView(root, p, lang); return; }
-  if(State.mode==='perfil'){ renderPerfilView(root, p, lang); return; }
+  if(State.mode==='perfil' || State.mode==='competitivo'){ renderPerfilView(root, p, lang); return; }
   var scope = getPlayerScope();
   var arr = getPlayerScopeSessions(p.name, scope);
 
