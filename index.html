@@ -2896,6 +2896,36 @@ function lgParseColors(wb){
       var h = txt(hr,c);
       if(h==='jugadora' || h.indexOf('total')===0 || h.indexOf('porcentaje')===0 || h==='%' || h.indexOf('minutos')===0) skipCol[c] = true;
     }
+    /* Solo LIGA: cada bloque (desde una columna "JUGADORA") tiene su "TOTAL LIGA"; las columnas
+       que suma su fórmula son las de liga. Así la Copa (p. ej. CACEREÑO, sumada en TOTAL COPA)
+       no cuenta. Si "TOTAL LIGA" no tiene fórmula, cuentan todas las columnas de partido del bloque. */
+    var blockStarts = [];
+    for(c=R.s.c; c<=R.e.c; c++){ if(txt(hr,c)==='jugadora') blockStarts.push(c); }
+    var ligaCol = {}, anyLiga = false;
+    blockStarts.forEach(function(bs, bi){
+      var be = bi+1<blockStarts.length ? blockStarts[bi+1]-1 : R.e.c;
+      var totCol = -1;
+      for(var cc=bs; cc<=be; cc++){ if(txt(hr,cc)==='total liga'){ totCol=cc; break; } }
+      var refs = null;
+      if(totCol>=0){
+        for(var rr=hr+1; rr<=R.e.r && !refs; rr++){
+          var fc = cellAt(rr,totCol);
+          if(fc && fc.f){
+            refs = {};
+            String(fc.f).replace(/\$?([A-Z]{1,3})\$?\d+(?::\$?([A-Z]{1,3})\$?\d+)?/g, function(m, c1, c2){
+              var a1 = XLSX.utils.decode_col(c1), a2 = c2 ? XLSX.utils.decode_col(c2) : a1;
+              for(var q=Math.min(a1,a2); q<=Math.max(a1,a2); q++) refs[q] = true;
+              return m;
+            });
+          }
+        }
+      }
+      for(cc=bs+1; cc<=(totCol>=0?totCol-1:be); cc++){
+        if(skipCol[cc]) continue;
+        if(refs && !refs[cc]) continue;
+        ligaCol[cc] = true; anyLiga = true;
+      }
+    });
     var known = (State.players||[]).map(function(pl){ return pl.name; });
     var out = {}, colored = 0;
     for(r=hr+1; r<=R.e.r; r++){
@@ -2906,6 +2936,7 @@ function lgParseColors(wb){
       var e = out[key] = out[key] || {name:name, titular:0, suplente:0, noParticipa:0, noConv:0, lesion:0, sancion:0, seleccion:0, amarillas:0, rojas:0, jornadas:0};
       for(c=R.s.c; c<=R.e.c; c++){
         if(c===nameCol || skipCol[c]) continue;
+        if(anyLiga && !ligaCol[c]) continue;
         var f = lgFill(cellAt(r,c)); var k = f && colorMap[f];
         if(k){ e[k]++; e.jornadas++; colored++; }
       }
