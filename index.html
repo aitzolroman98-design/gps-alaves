@@ -778,6 +778,7 @@ body.anthro-mode .sidebar{ background:#f1f9f3; }
 .pf-md-pos{ font-size:11px; color:var(--ink-muted); margin-top:2px; white-space:nowrap; }
 .pf-md-n{ font-size:11px; color:var(--ink-muted); font-weight:500; margin-top:2px; white-space:nowrap; }
 .pf-md-match td{ border-top:2px solid var(--border); }
+body.demo-mode #btnAddPlayer, body.demo-mode #btnPerfilMax, body.demo-mode #btnLiga, body.demo-mode #btnAnthro, body.demo-mode #btnShareLinks, body.demo-mode .lg-hint .link-btn{ display:none !important; }
 /* ---- Pestaña Perfil ---- */
 .app.staff-lock #btnPerfilMax, .app.staff-lock #btnLiga{ display:none; }
 .lg-card{ display:inline-block; width:9px; height:12px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
@@ -829,7 +830,7 @@ body.anthro-mode .sidebar{ background:#f1f9f3; }
       <div class="crest">DA</div>
       <div class="mark-text">
         <div class="club">Alavés Femenino</div>
-        <div class="sub">Informes GPS y antropometría · Rendimiento físico <span style="opacity:.75;font-weight:700;">· versión 20-nov c</span></div>
+        <div class="sub">Informes GPS y antropometría · Rendimiento físico <span style="opacity:.75;font-weight:700;">· versión 26-nov b</span></div>
       </div>
     </div>
     <div class="topbar-spacer"></div>
@@ -1092,21 +1093,21 @@ var ARCH = {
 };
 var SAMPLE_PLAYERS = [
   {name:'Elena Ruiz', posicion:'Central'},
-  {name:'Marta Gómez', posicion:'Lateral derecho'},
-  {name:'Sara Ibáñez', posicion:'Lateral izquierdo'},
   {name:'Claudia Vidal', posicion:'Central'},
-  {name:'Nagore Etxeberria', posicion:'Pivote'},
-  {name:'Irene Campos', posicion:'Interior'},
-  {name:'Lucía Serrano', posicion:'Interior'},
-  {name:'Ainhoa Larrea', posicion:'Extremo derecho'},
-  {name:'Paula Nieves', posicion:'Extremo izquierdo'},
-  {name:'Noa Fernández', posicion:'Delantera'},
-  {name:'Carla Domínguez', posicion:'Delantera'},
-  {name:'Judith Otxoa', posicion:'Pivote'},
   {name:'Bea Alonso', posicion:'Central'},
-  {name:'Vera Molina', posicion:'Lateral derecho'},
-  {name:'Iratxe Beitia', posicion:'Interior'},
-  {name:'Diana Castro', posicion:'Extremo izquierdo'}
+  {name:'Marta Gómez', posicion:'Lateral'},
+  {name:'Sara Ibáñez', posicion:'Lateral'},
+  {name:'Vera Molina', posicion:'Lateral'},
+  {name:'Nagore Etxeberria', posicion:'MCD'},
+  {name:'Judith Otxoa', posicion:'MCD'},
+  {name:'Irene Campos', posicion:'MCO'},
+  {name:'Lucía Serrano', posicion:'MCO'},
+  {name:'Iratxe Beitia', posicion:'MCO'},
+  {name:'Ainhoa Larrea', posicion:'Extremo'},
+  {name:'Paula Nieves', posicion:'Extremo'},
+  {name:'Diana Castro', posicion:'Extremo'},
+  {name:'Noa Fernández', posicion:'Delantera'},
+  {name:'Carla Domínguez', posicion:'Delantera'}
 ];
 
 /* Players the trainer asked to have ready in the roster even before any GPS session
@@ -1435,7 +1436,7 @@ function buildPlayersList(sessions){
     if(!map[s.player]){ map[s.player]={name:s.player, posicion:s.posicion||''}; order.push(s.player); }
     else if(!map[s.player].posicion && s.posicion) map[s.player].posicion=s.posicion;
   });
-  State.manualPlayers.forEach(function(m){
+  (State.isSample ? [] : State.manualPlayers).forEach(function(m){
     var existingKey = order.filter(function(k){ return normalizeText(k)===normalizeText(m.name); })[0];
     if(!existingKey){ map[m.name]={name:m.name, posicion:m.posicion||''}; order.push(m.name); }
     else if(!map[existingKey].posicion && m.posicion) map[existingKey].posicion=m.posicion;
@@ -1443,6 +1444,7 @@ function buildPlayersList(sessions){
   return order.map(function(k){ return map[k]; }).sort(function(a,b){ return a.name.localeCompare(b.name,'es'); });
 }
 function getPlayerPhoto(name){
+  if(State.isSample) return null;
   return State.photos[normalizeText(name)] || null;
 }
 function setPlayerPhoto(name, dataUrl){
@@ -1612,7 +1614,7 @@ function archetypeFor(pos){
   var p = (pos||'').toLowerCase();
   if(p.indexOf('central')!==-1) return ARCH.CB;
   if(p.indexOf('lateral')!==-1) return ARCH.FB;
-  if(p.indexOf('pivote')!==-1) return ARCH.DM;
+  if(p.indexOf('pivote')!==-1 || p==='mcd') return ARCH.DM;
   if(p.indexOf('interior')!==-1) return ARCH.CM;
   if(p.indexOf('extremo')!==-1) return ARCH.WG;
   if(p.indexOf('delantera')!==-1) return ARCH.FW;
@@ -1634,8 +1636,62 @@ function makeSampleSession(pl, arch, dateObj, dayTag, type, factor){
     id:'s'+(sampleIdCounter++), player:pl.name, posicion:pl.posicion,
     date: toISO(dateObj), sessionType:type, dayTag:dayTag, kind: type==='Partido' ? 'match' : 'session',
     distanciaTotal: round1(distanciaTotal), mpm: round1(mpm), hsr: round1(hsr), sprint: round1(sprint),
-    acel: acel, velMax: round1(velMax), car13: round1(car13)
+    acel: acel, velMax: round1(velMax), car13: round1(car13),
+    hsrRel: round1(hsr*rand(0.55,1.15)), sprintRel: round1(sprint*rand(0.15,0.6)), minutosJugados: minutosInternal
   };
+}
+/* =========================================================
+   DEMO ANÓNIMA: al pulsar "Ver una demo con datos de ejemplo" solo aparecen jugadoras
+   ficticias, sin fotos, sin escudo ni nombre del club, y con perfil competitivo y datos
+   de liga inventados. Los datos reales se apartan y vuelven al cargar datos reales.
+   ========================================================= */
+var DEMO_REAL = null;
+function buildDemoPerfil(sessions){
+  var keys = ['distanciaTotal','mpm','hsr','hsrRel','sprint','sprintRel','acel','velMax'];
+  var vars = keys.map(function(k){ var m = metDef(k); return {key:k, label:m.label, labelEn:m.labelEn, short:m.short, unit:m.unit, decimals:m.decimals}; });
+  var players = {};
+  SAMPLE_PLAYERS.forEach(function(pl){
+    var ms = sessions.filter(function(x){ return x.player===pl.name && x.kind==='match'; });
+    var valid = ms.filter(function(x){ var m = sessionMinutes(x); return isNum(m) && m>=80; });
+    var base = valid.length ? valid : ms, values = {};
+    keys.forEach(function(k){
+      var v = base.map(function(x){ return x[k]; }).filter(isNum).sort(function(a,b){ return b-a; }).slice(0,3);
+      if(v.length) values[k] = avg(v);
+    });
+    players[normalizeText(pl.name)] = {name:pl.name, pos:pl.posicion, played:ms.length, valid:valid.length, values:values};
+  });
+  return {fileName:'Perfil de ejemplo (ficticio)', loadedAt:new Date().toISOString(), threshold:80, vars:vars, players:players, positions:pmComputePositions(players, vars), computed:true};
+}
+function buildDemoLiga(sessions){
+  var nMatches = new Set(sessions.filter(function(x){ return x.kind==='match'; }).map(function(x){ return x.date; })).size;
+  var players = {};
+  SAMPLE_PLAYERS.forEach(function(pl){
+    var ms = sessions.filter(function(x){ return x.player===pl.name && x.kind==='match'; });
+    var tit = ms.filter(function(x){ return (sessionMinutes(x)||0)>=60; }).length;
+    var sup = ms.length - tit;
+    var rest = Math.max(0, nMatches - ms.length);
+    var noConv = Math.round(rest*Math.random());
+    players[normalizeText(pl.name)] = {name:pl.name, titular:tit, suplente:sup, noParticipa:rest-noConv, noConv:noConv, lesion:0, sancion:0, seleccion:0,
+      amarillas: Math.random()<0.4 ? 1 + (Math.random()<0.3?1:0) : 0, rojas: Math.random()<0.06 ? 1 : 0, jornadas:nMatches};
+  });
+  return {fileName:'Liga de ejemplo (ficticia)', loadedAt:new Date().toISOString(), sheet:'DEMO', mode:'demo', hasCards:true, players:players};
+}
+function applyDemoMode(on, sessions){
+  var club = $('.topbar .club'), crest = $('.topbar .crest');
+  if(on){
+    if(!DEMO_REAL) DEMO_REAL = {perfilMax:State.perfilMax, liga:State.liga, club:club?club.textContent:'', crest:crest?crest.textContent:''};
+    State.perfilMax = buildDemoPerfil(sessions);
+    State.liga = buildDemoLiga(sessions);
+    if(club) club.textContent = 'Equipo demo';
+    if(crest) crest.textContent = 'ED';
+    document.body.classList.add('demo-mode');
+  } else if(DEMO_REAL){
+    State.perfilMax = DEMO_REAL.perfilMax; State.liga = DEMO_REAL.liga;
+    if(club) club.textContent = DEMO_REAL.club;
+    if(crest) crest.textContent = DEMO_REAL.crest;
+    DEMO_REAL = null;
+    document.body.classList.remove('demo-mode');
+  }
 }
 function generateSampleData(){
   var sessions=[];
@@ -1645,7 +1701,7 @@ function generateSampleData(){
     var monday = new Date(today);
     var currentDow = (today.getDay()+6)%7;
     monday.setDate(today.getDate()-currentDow-7*w);
-    var trainDays=[1,2,3], dayTagsTrain=['MD-4','MD-3','MD-2'];
+    var trainDays=[1,2,3,4], dayTagsTrain=['MD-4','MD-3','MD-2','MD-1'];
     SAMPLE_PLAYERS.forEach(function(pl){
       var arch = archetypeFor(pl.posicion);
       trainDays.forEach(function(offset,ix){
@@ -2304,6 +2360,8 @@ function renderMapPreview(headers, rows){
    ========================================================= */
 function setSessions(sessions, opts){
   opts = opts||{};
+  State.isSample = !!opts.isSample;
+  applyDemoMode(State.isSample, sessions);
   State.sessions = sessions;
   State.players = buildPlayersList(sessions);
   var dateSet={}; sessions.forEach(function(s){ dateSet[s.date]=true; });
@@ -2901,11 +2959,12 @@ function lgParseColors(wb){
        no cuenta. Si "TOTAL LIGA" no tiene fórmula, cuentan todas las columnas de partido del bloque. */
     var blockStarts = [];
     for(c=R.s.c; c<=R.e.c; c++){ if(txt(hr,c)==='jugadora') blockStarts.push(c); }
-    var ligaCol = {}, anyLiga = false;
+    var ligaCol = {}, anyLiga = false, ligaTotCol = -1;
     blockStarts.forEach(function(bs, bi){
       var be = bi+1<blockStarts.length ? blockStarts[bi+1]-1 : R.e.c;
       var totCol = -1;
       for(var cc=bs; cc<=be; cc++){ if(txt(hr,cc)==='total liga'){ totCol=cc; break; } }
+      if(bi===0) ligaTotCol = totCol;
       var refs = null;
       if(totCol>=0){
         for(var rr=hr+1; rr<=R.e.r && !refs; rr++){
@@ -2934,6 +2993,13 @@ function lgParseColors(wb){
       var raw = String(nmCell.v).trim();
       var name = lgResolve(raw, known), key = normalizeText(name);
       var e = out[key] = out[key] || {name:name, titular:0, suplente:0, noParticipa:0, noConv:0, lesion:0, sancion:0, seleccion:0, amarillas:0, rojas:0, jornadas:0};
+      /* Minutos de liga y % del propio Excel (TOTAL LIGA y su PORCENTAJE), tal como los calcula tu hoja. */
+      if(ligaTotCol>=0){
+        var tm = cellAt(r,ligaTotCol), tp = cellAt(r,ligaTotCol+1);
+        if(tm && isNum(tm.v)) e.minLiga = +tm.v;
+        if(tp && isNum(tp.v) && txt(hr,ligaTotCol+1).indexOf('porcentaje')===0) e.pctLiga = +tp.v;
+        if(isNum(e.minLiga) && isNum(e.pctLiga) && e.pctLiga>0) e.teamMinLiga = Math.round(e.minLiga*100/e.pctLiga);
+      }
       for(c=R.s.c; c<=R.e.c; c++){
         if(c===nameCol || skipCol[c]) continue;
         if(anyLiga && !ligaCol[c]) continue;
@@ -3219,7 +3285,9 @@ function renderPerfilView(root, p, lang){
     tile(tr(lang,'Entrenamientos','Training sessions'), fmtNum(trainDates.length,0,lang), '', tr(lang,'sesiones registradas','sessions on record')) +
     tile(tr(lang,'Partidos','Matches'), fmtNum(matches.length,0,lang), '', tr(lang,'partidos registrados','matches on record')) +
     tile(tr(lang,'Minutos en partido','Match minutes'), fmtNum(minMatch,0,lang), 'min', matches.length ? tr(lang,'media ','avg ')+fmtNum(minMatch/matches.length,0,lang)+' min' : '') +
-    tile(tr(lang,'% minutos jugados','% minutes played'), teamMin ? fmtNum(minMatch/teamMin*100,0,lang) : '—', '%', teamMin ? tr(lang,'de '+fmtNum(teamMin,0,lang)+' min del equipo','of '+fmtNum(teamMin,0,lang)+' team min') : '') +
+    (lg && isNum(lg.pctLiga)
+      ? tile(tr(lang,'% minutos en liga','% league minutes'), fmtNum(lg.pctLiga,0,lang), '%', isNum(lg.minLiga) ? fmtNum(lg.minLiga,0,lang)+(isNum(lg.teamMinLiga)?tr(lang,' de ',' of ')+fmtNum(lg.teamMinLiga,0,lang):'')+' min · '+tr(lang,'según tu Excel','from your sheet') : '')
+      : tile(tr(lang,'% minutos jugados','% minutes played'), teamMin ? fmtNum(minMatch/teamMin*100,0,lang) : '—', '%', teamMin ? tr(lang,'de '+fmtNum(teamMin,0,lang)+' min del equipo (GPS)','of '+fmtNum(teamMin,0,lang)+' team min (GPS)') : '')) +
   '</div>' + (lg ? '<div class="kpi-grid '+(lgHasCards?'':'kpi-grid-8 ')+'lg-grid">'+ligaTiles+'</div>' + (lgOther.length ? '<div class="lg-hint">'+tr(lang,'Además: ','Also: ')+escapeHtml(lgOther.join(' · '))+'</div>' : '') : '') + (!lg && canEditLg ? '<div class="lg-hint">'+(State.liga ? 'Esta jugadora no aparece en tu Excel de liga.' : 'Conecta tu Excel de liga para ver titularidades, suplencias, no convocatorias y tarjetas.')+' <button type="button" class="link-btn" id="btnPfLiga">Excel de liga</button></div>' : '');
   function avgOf(arr, key){ var v = arr.map(function(s){ return s[key]; }).filter(isNum); return v.length ? avg(v) : null; }
   /* Resumen por tipología (MD): su media por sesión y, debajo, la media de su posición
@@ -4318,6 +4386,7 @@ function anHasPublished(p){
   return !!(pub && pub.players && pub.players[playerSlug(p.name)]);
 }
 function anShowTab(p){
+  if(State.isSample) return false;
   if(!p) return !(State.playerLockMode || State.staffLockMode);
   if(State.playerLockMode || State.staffLockMode) return anHasPublished(p) || !!anLocalPreview(p);
   return true;
